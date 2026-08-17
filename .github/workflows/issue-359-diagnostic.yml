@@ -7,7 +7,7 @@ on:
     paths:
       - .github/workflows/issue-359-diagnostic.yml
 
-run-name: 'Issue #359 Electron comparison builds'
+run-name: 'Issue #359 Koffi comparison builds'
 
 concurrency:
   group: issue-359-windows-diagnostics
@@ -24,12 +24,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - variant: electron-43.4.0
+          - variant: electron-43.4.0-koffi-3.1.5
             electron: 43.4.0
-            koffi: 3.1.4
-          - variant: electron-43.2.0
-            electron: 43.2.0
-            koffi: 3.1.4
+            koffi: 3.1.5
+          - variant: electron-43.4.0-koffi-3.1.2
+            electron: 43.4.0
+            koffi: 3.1.2
     steps:
       # Keep the product source and packaging metadata identical to the version
       # independently reproduced in issue #359. This workflow is intentionally
@@ -41,22 +41,25 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Pin comparison Electron version
+      - name: Pin comparison dependency versions
         shell: bash
         env:
           EXPECTED_ELECTRON: ${{ matrix.electron }}
+          EXPECTED_KOFFI: ${{ matrix.koffi }}
         run: |
           set -euo pipefail
           npm install --package-lock-only --ignore-scripts --save-dev --save-exact "electron@$EXPECTED_ELECTRON"
+          npm install --package-lock-only --ignore-scripts --save-exact "koffi@$EXPECTED_KOFFI"
           node <<'NODE'
           const manifest = require('./package.json');
           const lockfile = require('./package-lock.json');
-          const expected = process.env.EXPECTED_ELECTRON;
+          const expectedElectron = process.env.EXPECTED_ELECTRON;
+          const expectedKoffi = process.env.EXPECTED_KOFFI;
           if (manifest.version !== '0.43.0') throw new Error(`unexpected Token Monitor version: ${manifest.version}`);
-          if (manifest.devDependencies.electron !== expected) throw new Error(`unexpected Electron manifest version: ${manifest.devDependencies.electron}`);
-          if (manifest.dependencies.koffi !== '^3.1.4') throw new Error(`unexpected Koffi manifest version: ${manifest.dependencies.koffi}`);
-          if (lockfile.packages['node_modules/electron']?.version !== expected) throw new Error(`unexpected Electron lock version: ${lockfile.packages['node_modules/electron']?.version}`);
-          if (lockfile.packages['node_modules/koffi']?.version !== '3.1.4') throw new Error(`unexpected Koffi lock version: ${lockfile.packages['node_modules/koffi']?.version}`);
+          if (manifest.devDependencies.electron !== expectedElectron) throw new Error(`unexpected Electron manifest version: ${manifest.devDependencies.electron}`);
+          if (manifest.dependencies.koffi !== expectedKoffi) throw new Error(`unexpected Koffi manifest version: ${manifest.dependencies.koffi}`);
+          if (lockfile.packages['node_modules/electron']?.version !== expectedElectron) throw new Error(`unexpected Electron lock version: ${lockfile.packages['node_modules/electron']?.version}`);
+          if (lockfile.packages['node_modules/koffi']?.version !== expectedKoffi) throw new Error(`unexpected Koffi lock version: ${lockfile.packages['node_modules/koffi']?.version}`);
           NODE
           git diff -- package.json package-lock.json
       - run: npm ci
@@ -202,7 +205,7 @@ jobs:
       - name: Upload signed diagnostic artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: issue-359-${{ matrix.variant }}-koffi-${{ matrix.koffi }}
+          name: issue-359-${{ matrix.variant }}
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
